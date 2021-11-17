@@ -45,6 +45,7 @@ func TestGolf_Do(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	gormDB, err := NewDB(db)
+	assert.NoError(t, err)
 	gol := NewGolf(gormDB)
 	m := &testModel{}
 	cases := []struct {
@@ -81,6 +82,7 @@ func TestCheckFilter(t *testing.T) {
 	db, _, err := sqlmock.New()
 	assert.NoError(t, err)
 	gormDB, err := NewDB(db)
+	assert.NoError(t, err)
 	gol := NewGolf(gormDB)
 	query := map[string]string{
 		"eq_id":           "1",

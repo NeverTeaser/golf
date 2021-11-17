@@ -1,7 +1,6 @@
 package golf
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -29,8 +28,8 @@ type GoldQuery interface {
 }
 
 type Golf struct {
-	db      *gorm.DB
-	ctx     context.Context
+	db *gorm.DB
+	//ctx     context.Context
 	builted bool
 	Error   error
 }
@@ -62,7 +61,7 @@ func (g *Golf) Build(model GoldQuery, query map[string]string) *Golf {
 	for k, v := range fields {
 		localStruct, ok := elem.FieldByName(k)
 		if !ok {
-			g.Error = errors.New(fmt.Sprintf("invalidate model field: %s", k))
+			g.Error = fmt.Errorf(fmt.Sprintf("invalidate model field: %s", k))
 			break
 		}
 		lowerColumn := strcase.ToSnake(k)
@@ -122,18 +121,18 @@ func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter, urlQuery map[s
 	var ret = make(map[string]ValueOperation)
 	for k, v := range urlQuery {
 		if len(strings.Split(k, querySep)) < 1 {
-			return nil, errors.New("format query param failed,query param should like `eq_id=1`")
+			return nil, fmt.Errorf("format query param failed,query param should like `eq_id=1`")
 		}
 		splitQuery := strings.Split(k, querySep)
 		filter, ok := OperationMap[Filter(splitQuery[0])]
 		if !ok {
-			return nil, errors.New(fmt.Sprintf("un support oper: %s", splitQuery[1]))
+			return nil, fmt.Errorf(fmt.Sprintf("un support oper: %s", splitQuery[1]))
 		}
 		// extract real query column support for gte_user_id=1
 		queryColumn := strings.Replace(k, fmt.Sprintf("%s%s", splitQuery[0], querySep), "", 1)
 		supportFilter, ok := lowerQuery[queryColumn]
 		if !ok {
-			return nil, errors.New(fmt.Sprintf("Undefined field %s", queryColumn))
+			return nil, fmt.Errorf(fmt.Sprintf("Undefined field %s", queryColumn))
 		}
 		var support bool
 		for _, q := range supportFilter {
@@ -142,7 +141,7 @@ func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter, urlQuery map[s
 			}
 		}
 		if !support {
-			return nil, errors.New(fmt.Sprintf("field:%s un support operation: %s", splitQuery[1], splitQuery[0]))
+			return nil, fmt.Errorf(fmt.Sprintf("field:%s un support operation: %s", splitQuery[1], splitQuery[0]))
 		}
 		singleQ := ValueOperation{
 			Value:  v,

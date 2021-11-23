@@ -1,12 +1,13 @@
 package golf
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/iancoleman/strcase"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -45,7 +46,7 @@ func (g *Golf) GetGormDB() *gorm.DB {
 }
 
 // Build Golf wile call checkQuery before generate real query
-func (g *Golf) Build(model GoldQuery, query map[string]string) *Golf {
+func (g *Golf) Build(model GoldQuery, query map[string][]string) *Golf {
 	if g.db == nil {
 		g.Error = errors.New("golf db is nil")
 		return g
@@ -74,12 +75,18 @@ func (g *Golf) Build(model GoldQuery, query map[string]string) *Golf {
 		g.Error = err
 		return g
 	}
-	operations := g.parseOperation(queryMap, goStructMap)
+	operations, err := g.parseOperation(queryMap, goStructMap)
+	if err != nil {
+		g.Error = errors.Wrap(err, "parse operation error")
+	}
 	for _, operation := range operations {
 		switch operation.Filter {
 		case In, NotIn:
+			fmt.Printf("%s %s (?)", operation.Column, getSQLOperation(operation.Filter))
 			g.db = g.db.Where(fmt.Sprintf("%s %s (?)", operation.Column, getSQLOperation(operation.Filter)), operation.Value)
 		default:
+			fmt.Printf("%s %s (?)", operation.Column, getSQLOperation(operation.Filter))
+
 			g.db = g.db.Where(fmt.Sprintf("%s %s ?", operation.Column, getSQLOperation(operation.Filter)), operation.Value)
 		}
 	}
@@ -103,21 +110,35 @@ func (g *Golf) First(dest interface{}, conds ...interface{}) *Golf {
 	return g
 }
 
-func (g *Golf) parseOperation(queryMap map[string]ValueOperation, structMap map[string]reflect.StructField) []OperationWithType {
+func (g *Golf) parseOperation(queryMap map[string]ValueOperation, structMap map[string]reflect.StructField) ([]OperationWithType, error) {
 	var ret []OperationWithType
-	for _, v := range queryMap {
+	for k, v := range queryMap {
+		goStruct := structMap[k]
+		fmt.Printf(goStruct.Type.String())
+		switch goStruct.Type.String() {
+		case "int":
+			i, err := strconv.ParseInt(v.Value.(string), 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			v.Value = i
+		case "string":
+			v.Value = v.Value.(string)
+		}
+
 		oper := OperationWithType{
 			ValueOperation: v,
 		}
+
 		// TODO parse Type to interface
 		ret = append(ret, oper)
 	}
-	return ret
+	return ret, nil
 }
 
 // checkAndBuildQuery check url query and build  column value map
 // urlQuery eg: eq_id=1
-func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter, urlQuery map[string]string) (map[string]ValueOperation, error) {
+func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter, urlQuery map[string][]string) (map[string]ValueOperation, error) {
 	var ret = make(map[string]ValueOperation)
 	for k, v := range urlQuery {
 		if len(strings.Split(k, querySep)) < 1 {

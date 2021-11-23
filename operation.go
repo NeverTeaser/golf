@@ -32,12 +32,14 @@ func getSQLOperation(filter Filter) string {
 		return "!="
 	case Lt:
 		return "<"
+	case Lte:
+		return "<="
 	case Gt:
 		return ">"
 	case Gte:
 		return ">="
 	case Like:
-		return "like"
+		return "LIKE"
 	case NotLike:
 		return "NOT LIKE"
 	case In:

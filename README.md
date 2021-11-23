@@ -23,11 +23,11 @@ use golf must implement this interface , map key is go struct member name
 ```go
 
 func (m *testModel) Field() map[string][]golf.Filter {
-return map[string][]golf.Filter{
-"ID":       {golf.Equal},
-"UserID":   {golf.Equal, golf.Gte},
-"Username": {golf.Equal, golf.Like},
-}
+    return map[string][]golf.Filter{
+        "ID":       {golf.Equal},
+        "UserID":   {golf.Equal, golf.Gte},
+        "Username": {golf.Equal, golf.Like},
+    }
 }
 ```
 

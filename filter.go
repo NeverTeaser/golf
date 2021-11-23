@@ -29,10 +29,13 @@ type GoldQuery interface {
 }
 
 type Golf struct {
-	db *gorm.DB
-	//ctx     context.Context
-	builted bool
-	Error   error
+	db            *gorm.DB
+	isBuild       bool
+	Error         error
+	filters       []OperationWithType
+	originalQuery map[string]string
+	count         int64
+	offset        int64
 }
 
 func NewGolf(db *gorm.DB) *Golf {
@@ -46,7 +49,7 @@ func (g *Golf) GetGormDB() *gorm.DB {
 }
 
 // Build Golf wile call checkQuery before generate real query
-func (g *Golf) Build(model GoldQuery, query map[string][]string) *Golf {
+func (g *Golf) Build(model GoldQuery, query map[string]string) *Golf {
 	if g.db == nil {
 		g.Error = errors.New("golf db is nil")
 		return g
@@ -55,6 +58,7 @@ func (g *Golf) Build(model GoldQuery, query map[string][]string) *Golf {
 		g.Error = errors.New("model need a struct pointer")
 		return g
 	}
+	g.originalQuery = query
 	fields := model.Field()
 	elem := reflect.TypeOf(model).Elem()
 	var lowerQuery = make(map[string][]Filter)
@@ -70,41 +74,48 @@ func (g *Golf) Build(model GoldQuery, query map[string][]string) *Golf {
 		// TODO Origin SQL
 		lowerQuery[lowerColumn] = v
 	}
-	queryMap, err := g.checkAndBuildQuery(lowerQuery, query)
+	queryMap, err := g.checkAndBuildQuery(lowerQuery)
 	if err != nil {
 		g.Error = err
 		return g
 	}
-	operations, err := g.parseOperation(queryMap, goStructMap)
-	if err != nil {
-		g.Error = errors.Wrap(err, "parse operation error")
+	g.filters, g.Error = g.parseOperation(queryMap, goStructMap)
+	return g.buildGormQuery()
+}
+
+func (g *Golf) buildGormQuery() *Golf {
+	if err := g.buildPagination().Error; err != nil {
+		return g
 	}
-	for _, operation := range operations {
+	for _, operation := range g.filters {
 		switch operation.Filter {
 		case In, NotIn:
 			fmt.Printf("%s %s (?)", operation.Column, getSQLOperation(operation.Filter))
 			g.db = g.db.Where(fmt.Sprintf("%s %s (?)", operation.Column, getSQLOperation(operation.Filter)), operation.Value)
 		default:
-			fmt.Printf("%s %s (?)", operation.Column, getSQLOperation(operation.Filter))
-
+			fmt.Printf("%s %s ?", operation.Column, getSQLOperation(operation.Filter))
 			g.db = g.db.Where(fmt.Sprintf("%s %s ?", operation.Column, getSQLOperation(operation.Filter)), operation.Value)
 		}
 	}
-	g.builted = true
+	g.isBuild = true
 	return g
 }
 
 func (g *Golf) Find(dest interface{}, conds ...interface{}) *Golf {
-	if !g.builted {
-		g.Error = errors.New("before call do you should call build first")
+	if !g.isBuild {
+		g.Error = errors.New("before call find, you should call build first")
+	}
+	if g.offset != 0 || g.count != 0 {
+		g.Error = g.db.Limit(int(g.count)).Offset(int(g.offset)).Find(dest, conds...).Error
+		return g
 	}
 	g.Error = g.db.Find(dest, conds...).Error
 	return g
 }
 
 func (g *Golf) First(dest interface{}, conds ...interface{}) *Golf {
-	if !g.builted {
-		g.Error = errors.New("before call do you should call build first")
+	if !g.isBuild {
+		g.Error = errors.New("before call first, you should call build first")
 	}
 	g.Error = g.db.First(dest, conds...).Error
 	return g
@@ -116,7 +127,7 @@ func (g *Golf) parseOperation(queryMap map[string]ValueOperation, structMap map[
 		goStruct := structMap[k]
 		fmt.Printf(goStruct.Type.String())
 		switch goStruct.Type.String() {
-		case "int":
+		case "int", "int64", "int32", "uint", "uint64":
 			i, err := strconv.ParseInt(v.Value.(string), 10, 64)
 			if err != nil {
 				return nil, err
@@ -125,22 +136,20 @@ func (g *Golf) parseOperation(queryMap map[string]ValueOperation, structMap map[
 		case "string":
 			v.Value = v.Value.(string)
 		}
-
 		oper := OperationWithType{
 			ValueOperation: v,
 		}
 
-		// TODO parse Type to interface
-		ret = append(ret, oper)
+		ret = append(g.filters, oper)
 	}
 	return ret, nil
 }
 
 // checkAndBuildQuery check url query and build  column value map
 // urlQuery eg: eq_id=1
-func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter, urlQuery map[string][]string) (map[string]ValueOperation, error) {
+func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter) (map[string]ValueOperation, error) {
 	var ret = make(map[string]ValueOperation)
-	for k, v := range urlQuery {
+	for k, v := range g.originalQuery {
 		if len(strings.Split(k, querySep)) < 1 {
 			return nil, fmt.Errorf("format query param failed,query param should like `eq_id=1`")
 		}
@@ -172,4 +181,23 @@ func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter, urlQuery map[s
 		ret[queryColumn] = singleQ
 	}
 	return ret, nil
+}
+
+func (g *Golf) buildPagination() *Golf {
+	for k, v := range g.originalQuery {
+		i, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			g.Error = err
+		}
+		switch k {
+		case "offset":
+			g.offset = i
+		case "count":
+			g.count = i
+		default:
+			g.count = 10
+			g.offset = 0
+		}
+	}
+	return g
 }

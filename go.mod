@@ -6,6 +6,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/iancoleman/strcase v0.2.0
 	github.com/kr/pretty v0.3.0 // indirect
+	github.com/pkg/errors v0.8.1
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20211115234514-b4de73f9ece8 // indirect

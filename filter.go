@@ -23,7 +23,7 @@ var OperationMap = map[Filter]Filter{
 	NotIn:   NotIn,
 }
 
-type GoldQuery interface {
+type GolfQuery interface {
 	// Field map key is target column, value is support operation slice
 	Field() map[string][]Filter
 }
@@ -33,7 +33,7 @@ type Golf struct {
 	isBuild       bool
 	Error         error
 	filters       []OperationWithType
-	originalQuery map[string]string
+	originalQuery map[string][]string
 	count         int64
 	offset        int64
 }
@@ -49,7 +49,7 @@ func (g *Golf) GetGormDB() *gorm.DB {
 }
 
 // Build Golf wile call checkQuery before generate real query
-func (g *Golf) Build(model GoldQuery, query map[string]string) *Golf {
+func (g *Golf) Build(model GolfQuery, query map[string][]string) *Golf {
 	if g.db == nil {
 		g.Error = errors.New("golf db is nil")
 		return g
@@ -102,6 +102,11 @@ func (g *Golf) buildGormQuery() *Golf {
 }
 
 func (g *Golf) Find(dest interface{}, conds ...interface{}) *Golf {
+
+	if g.Error != nil {
+		return g
+	}
+
 	if !g.isBuild {
 		g.Error = errors.New("before call find, you should call build first")
 	}
@@ -114,9 +119,13 @@ func (g *Golf) Find(dest interface{}, conds ...interface{}) *Golf {
 }
 
 func (g *Golf) First(dest interface{}, conds ...interface{}) *Golf {
+	if g.Error != nil {
+		return g
+	}
 	if !g.isBuild {
 		g.Error = errors.New("before call first, you should call build first")
 	}
+
 	g.Error = g.db.First(dest, conds...).Error
 	return g
 }
@@ -125,7 +134,6 @@ func (g *Golf) parseOperation(queryMap map[string]ValueOperation, structMap map[
 	var ret []OperationWithType
 	for k, v := range queryMap {
 		goStruct := structMap[k]
-		fmt.Printf(goStruct.Type.String())
 		switch goStruct.Type.String() {
 		case "int", "int64", "int32", "uint", "uint64":
 			i, err := strconv.ParseInt(v.Value.(string), 10, 64)
@@ -140,7 +148,7 @@ func (g *Golf) parseOperation(queryMap map[string]ValueOperation, structMap map[
 			ValueOperation: v,
 		}
 
-		ret = append(g.filters, oper)
+		ret = append(ret, oper)
 	}
 	return ret, nil
 }
@@ -154,6 +162,9 @@ func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter) (map[string]Va
 			return nil, fmt.Errorf("format query param failed,query param should like `eq_id=1`")
 		}
 		splitQuery := strings.Split(k, querySep)
+		if len(splitQuery) <= 1 {
+			continue
+		}
 		filter, ok := OperationMap[Filter(splitQuery[0])]
 		if !ok {
 			return nil, fmt.Errorf(fmt.Sprintf("un support oper: %s", splitQuery[1]))
@@ -173,31 +184,41 @@ func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter) (map[string]Va
 		if !support {
 			return nil, fmt.Errorf(fmt.Sprintf("field:%s un support operation: %s", splitQuery[1], splitQuery[0]))
 		}
-		singleQ := ValueOperation{
-			Value:  v,
-			Column: queryColumn,
-			Filter: filter,
+		if len(v) > 0 {
+			singleQ := ValueOperation{
+				Value:  v[0],
+				Column: queryColumn,
+				Filter: filter,
+			}
+			ret[queryColumn] = singleQ
 		}
-		ret[queryColumn] = singleQ
+
 	}
 	return ret, nil
 }
 
 func (g *Golf) buildPagination() *Golf {
 	for k, v := range g.originalQuery {
-		i, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			g.Error = err
+		if len(v) > 0 {
+			switch k {
+			case "offset":
+				offset, err := strconv.ParseInt(v[0], 10, 64)
+				if err != nil {
+					g.Error = err
+				}
+				g.offset = offset
+			case "count":
+				offset, err := strconv.ParseInt(v[0], 10, 64)
+				if err != nil {
+					g.Error = err
+				}
+				g.count = offset
+			default:
+				g.count = 10
+				g.offset = 0
+			}
 		}
-		switch k {
-		case "offset":
-			g.offset = i
-		case "count":
-			g.count = i
-		default:
-			g.count = 10
-			g.offset = 0
-		}
+
 	}
 	return g
 }

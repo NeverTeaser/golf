@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
+	github.com/gin-gonic/gin v1.7.6
 	github.com/iancoleman/strcase v0.2.0
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/pkg/errors v0.8.1

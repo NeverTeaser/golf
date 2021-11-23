@@ -52,20 +52,20 @@ func TestGolfFind(t *testing.T) {
 	m := &testModel{}
 	cases := []struct {
 		Name   string
-		query  map[string]string
+		query  map[string][]string
 		golf   *Golf
 		Except string
 	}{
 		{
-			query: map[string]string{
-				"eq_id": "1",
+			query: map[string][]string{
+				"eq_id": {"1"},
 			},
 			golf:   NewGolf(gormDB),
 			Except: regexp.QuoteMeta(`SELECT * FROM "test_model" WHERE id = $1 LIMIT 10`),
 		},
 		{
-			query: map[string]string{
-				"eq_username": "1",
+			query: map[string][]string{
+				"eq_username": {"1"},
 			},
 			golf:   NewGolf(gormDB2),
 			Except: regexp.QuoteMeta(`SELECT * FROM "test_model" WHERE username = $1 LIMIT 10`),
@@ -93,9 +93,9 @@ func TestCheckFilter(t *testing.T) {
 	gormDB, err := NewDB(db)
 	assert.NoError(t, err)
 	gol := NewGolf(gormDB)
-	query := map[string]string{
-		"eq_id":           "1",
-		"eq_created_user": "1",
+	query := map[string][]string{
+		"eq_id":           {"1"},
+		"eq_created_user": {"1"},
 	}
 	lowerQ := map[string][]Filter{
 		"id":           {Equal},

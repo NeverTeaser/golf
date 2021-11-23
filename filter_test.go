@@ -21,8 +21,9 @@ type testModel struct {
 
 func (m *testModel) Field() map[string][]Filter {
 	return map[string][]Filter{
-		"ID":     {Equal},
-		"UserID": {Equal, Gte},
+		"ID":       {Equal},
+		"UserID":   {Equal, Gte},
+		"Username": {Equal, Gte},
 	}
 }
 
@@ -41,36 +42,44 @@ func NewDB(db *sql.DB) (*gorm.DB, error) {
 		})
 }
 
-func TestGolf_Do(t *testing.T) {
+func TestGolfFind(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	gormDB, err := NewDB(db)
 	assert.NoError(t, err)
-	gol := NewGolf(gormDB)
+	gormDB2, err := NewDB(db)
+	assert.NoError(t, err)
 	m := &testModel{}
 	cases := []struct {
 		Name   string
-		query  map[string]string
+		query  map[string][]string
 		golf   *Golf
 		Except string
 	}{
 		{
-			query: map[string]string{
-				"eq_id": "1",
+			query: map[string][]string{
+				"eq_id": {"1"},
 			},
 			golf:   NewGolf(gormDB),
-			Except: regexp.QuoteMeta(`SELECT * FROM "test_model"`),
+			Except: regexp.QuoteMeta(`SELECT * FROM "test_model" WHERE id = $1 LIMIT 10`),
+		},
+		{
+			query: map[string][]string{
+				"eq_username": {"1"},
+			},
+			golf:   NewGolf(gormDB2),
+			Except: regexp.QuoteMeta(`SELECT * FROM "test_model" WHERE username = $1 LIMIT 10`),
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.Name, func(t *testing.T) {
-			assert.NoError(t, gol.Build(m, tt.query).Error)
+			assert.NoError(t, tt.golf.Build(m, tt.query).Error)
 			var testMod []testModel
 			// fixme SQL is not completely written because where conditional disorder
 			mock.ExpectQuery(tt.Except).
 				WillReturnRows(
 					sqlmock.NewRows([]string{"id"}).AddRow("1"))
-			assert.NoError(t, gol.Find(&testMod).Error)
+			assert.NoError(t, tt.golf.Find(&testMod).Error)
 			assert.NoError(t, mock.ExpectationsWereMet())
 			assert.Equal(t, len(testMod), 1)
 		})
@@ -84,15 +93,16 @@ func TestCheckFilter(t *testing.T) {
 	gormDB, err := NewDB(db)
 	assert.NoError(t, err)
 	gol := NewGolf(gormDB)
-	query := map[string]string{
-		"eq_id":           "1",
-		"eq_created_user": "1",
+	query := map[string][]string{
+		"eq_id":           {"1"},
+		"eq_created_user": {"1"},
 	}
 	lowerQ := map[string][]Filter{
 		"id":           {Equal},
 		"created_user": {Equal},
 	}
-	realQ, err := gol.checkAndBuildQuery(lowerQ, query)
+	gol.originalQuery = query
+	realQ, err := gol.checkAndBuildQuery(lowerQ)
 	assert.NoError(t, err)
 	t.Log(realQ)
 }

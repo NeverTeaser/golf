@@ -1,7 +1,7 @@
 # GOLF (WIP)
 
-GOLF(Go Light Filter), golf dependents [Gorm](https://github.com/go-gorm/gorm)
-and . golf can help you build model query as fast as，build model query like
+### [中文文档](https://github.com/NeverTeaser/golf/blob/master/REANME_Zh-cn.md)
+GOLF(Go Light Filter), golf dependents [Gorm](https://github.com/go-gorm/gorm) . golf can help you build model query as fast as，build model query like
 Django Rest Framework.
 
 ## usage
@@ -38,5 +38,10 @@ TODO you can read the example
 ```go
 // URL path /ping?eq_id=1&like_username=test
 // sql log should be  SELECT * FROM "test_model" WHERE username LIKE 'test' AND id = 1 LIMIT 10
+golfQ := golf.NewGolf(globalDB)
+var tests testModel
+if err := golfQ.Build(&testModel{}, Request.URL.Query()).Find(&tests).Error; err != nil {
+    log.Println("find failed", err)
+}
 ```
 

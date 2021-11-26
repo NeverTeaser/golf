@@ -1,7 +1,7 @@
 # GOLF (WIP)
 
 GOLF(Go Light Filter), golf dependents [Gorm](https://github.com/go-gorm/gorm)
-and [Gin](https://github.com/gin-gonic/gin). golf can help you build model query as fast as，build model query like
+and . golf can help you build model query as fast as，build model query like
 Django Rest Framework.
 
 ## usage
@@ -16,7 +16,7 @@ type testModel struct {
 }
 ```
 
-## implement `Golf Query`
+## implement `GolfQuery` interface 
 
 use golf must implement this interface , map key is go struct member name
 
@@ -31,7 +31,7 @@ func (m *testModel) Field() map[string][]golf.Filter {
 }
 ```
 
-## use with Gin
+## use with request url 
 
 TODO you can read the example
 

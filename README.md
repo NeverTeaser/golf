@@ -1,6 +1,6 @@
 # GOLF (WIP)
 
-### [中文文档](https://github.com/NeverTeaser/golf/blob/master/REANME_Zh-cn.md)
+### [中文文档](https://github.com/NeverTeaser/golf/blob/master/README_Zh-cn.md)
 GOLF(Go Light Filter), golf dependents [Gorm](https://github.com/go-gorm/gorm) . golf can help you build model query as fast as，build model query like
 Django Rest Framework.
 

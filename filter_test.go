@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
@@ -14,16 +15,18 @@ import (
 )
 
 type testModel struct {
-	ID       int    `json:"id"`
-	UserID   int    `json:"user_id"`
-	Username string `json:"username"`
+	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"`
+	Username  string    `json:"username"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (m *testModel) Field() map[string][]Filter {
 	return map[string][]Filter{
-		"ID":       {Equal},
-		"UserID":   {Equal, Gte},
-		"Username": {Equal, Gte},
+		"ID":        {Equal},
+		"UserID":    {Equal, Gte},
+		"Username":  {Equal, Gte},
+		"CreatedAt": {Lt, Gte},
 	}
 }
 
@@ -105,4 +108,26 @@ func TestCheckFilter(t *testing.T) {
 	realQ, err := gol.checkAndBuildQuery(lowerQ)
 	assert.NoError(t, err)
 	t.Log(realQ)
+}
+
+func TestDoFilter(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	gormDB, err := NewDB(db)
+	assert.NoError(t, err)
+	gol := NewGolf(gormDB)
+	query := map[string][]string{
+		"eq_id":          {"1"},
+		"lt_created_at":  {"2021-12-10"},
+		"gte_created_at": {"2021-12-10"},
+	}
+	// real query SELECT * FROM "test_model" WHERE created_at < $1 AND created_at >= $2 AND id = $3 LIMIT 10
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "test_model" WHERE `)).WillReturnRows(
+		sqlmock.NewRows([]string{"id"}).AddRow(1))
+	gol.originalQuery = query
+	var ret []testModel
+	assert.NoError(t, gol.Build(&testModel{}, query).Find(&ret).Error)
+	assert.NoError(t, err)
+
+	assert.NoError(t, mock.ExpectationsWereMet())
 }

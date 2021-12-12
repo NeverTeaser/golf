@@ -90,10 +90,8 @@ func (g *Golf) buildGormQuery() *Golf {
 	for _, operation := range g.filters {
 		switch operation.Filter {
 		case In, NotIn:
-			fmt.Printf("%s %s (?)", operation.Column, getSQLOperation(operation.Filter))
 			g.db = g.db.Where(fmt.Sprintf("%s %s (?)", operation.Column, getSQLOperation(operation.Filter)), operation.Value)
 		default:
-			fmt.Printf("%s %s ?", operation.Column, getSQLOperation(operation.Filter))
 			g.db = g.db.Where(fmt.Sprintf("%s %s ?", operation.Column, getSQLOperation(operation.Filter)), operation.Value)
 		}
 	}
@@ -130,10 +128,10 @@ func (g *Golf) First(dest interface{}, conds ...interface{}) *Golf {
 	return g
 }
 
-func (g *Golf) parseOperation(queryMap map[string]ValueOperation, structMap map[string]reflect.StructField) ([]OperationWithType, error) {
+func (g *Golf) parseOperation(queryMap []ValueOperation, structMap map[string]reflect.StructField) ([]OperationWithType, error) {
 	var ret []OperationWithType
-	for k, v := range queryMap {
-		goStruct := structMap[k]
+	for _, v := range queryMap {
+		goStruct := structMap[v.Column]
 		switch goStruct.Type.String() {
 		case "int", "int64", "int32", "uint", "uint64":
 			i, err := strconv.ParseInt(v.Value.(string), 10, 64)
@@ -155,8 +153,8 @@ func (g *Golf) parseOperation(queryMap map[string]ValueOperation, structMap map[
 
 // checkAndBuildQuery check url query and build  column value map
 // urlQuery eg: eq_id=1
-func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter) (map[string]ValueOperation, error) {
-	var ret = make(map[string]ValueOperation)
+func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter) ([]ValueOperation, error) {
+	var ret []ValueOperation
 	for k, v := range g.originalQuery {
 		if len(strings.Split(k, querySep)) < 1 {
 			return nil, fmt.Errorf("format query param failed,query param should like `eq_id=1`")
@@ -184,13 +182,13 @@ func (g *Golf) checkAndBuildQuery(lowerQuery map[string][]Filter) (map[string]Va
 		if !support {
 			return nil, fmt.Errorf(fmt.Sprintf("field:%s un support operation: %s", splitQuery[1], splitQuery[0]))
 		}
-		if len(v) > 0 {
+		for _, vv := range v {
 			singleQ := ValueOperation{
-				Value:  v[0],
+				Value:  vv,
 				Column: queryColumn,
 				Filter: filter,
 			}
-			ret[queryColumn] = singleQ
+			ret = append(ret, singleQ)
 		}
 
 	}
